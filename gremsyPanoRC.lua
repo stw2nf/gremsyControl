@@ -32,9 +32,6 @@ local cur_axis = PITCH_AXIS
 local RC_PANO_TRIG_CHAN = rc:find_channel_for_option(300) -- Manual Pano Trigger on RC
 local rc_pano = 0
 local rc_pano_prev = 0
-local axis_sel_out = 0
-local axis_sel_timeout = 1
-local prevAxisSel = 0
 
 local toggleStart = 0
 local trigCamStart = 0
@@ -47,6 +44,16 @@ local rcParam = 0
 
 local GPIO = -1
 local RCPassThru = 1
+local Script1 = 94
+
+local MODE_AUTO = 3 -- Auto mode Copter
+local PANO_CMD = 1
+local last_id = -1
+
+function moveMission()
+    vehicle:nav_script_time_done(last_id)
+    gcs:send_text(0, "Pano Finished")
+end
 
 function updateRCParams() -- Update parameters for RC Control
     if rcParam == 0 then
@@ -184,6 +191,7 @@ function writeHome() -- Send both axes home
         cur_yaw_step = 0
         cur_axis = PITCH_AXIS
     end
+    last_id = -1
     return update, 1000
 end
 
@@ -195,6 +203,9 @@ function runPano() -- Run Pano
         return movePitch, 1
     end
     if cur_yaw_step >= tot_yaw_step then
+        if vehicle:get_mode() == MODE_AUTO and last_id ~= -1 then
+            moveMission()
+        end
         return writeHome, 1
     else
         return moveYaw, 1000
@@ -204,6 +215,16 @@ end
 function update() -- Monitor RC Commands for Pano/Ortho Triggers
     rc_pano_prev = rc_pano
     rc_pano = RC_PANO_TRIG_CHAN:get_aux_switch_pos()
+    if vehicle:get_mode() == MODE_AUTO and arming:is_armed() then
+        local id, cmd, arg1, arg2, arg3, arg4 = vehicle:nav_script_time()
+        if id and cmd == PANO_CMD then
+            gcs:send_text(0, "Mission Triggered Pano")
+            last_id = id
+            updateScriptParams()
+            return runPano, 1
+        end
+        return update, 1 -- reschedules the loop 
+    end
     if rc_pano~=rc_pano_prev and rc_pano == 2 then
         updateScriptParams()
         return writeHome, 1
