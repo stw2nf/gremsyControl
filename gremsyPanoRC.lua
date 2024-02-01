@@ -32,9 +32,6 @@ local cur_axis = PITCH_AXIS
 local RC_PANO_TRIG_CHAN = rc:find_channel_for_option(300) -- Manual Pano Trigger on RC
 local rc_pano = 0
 local rc_pano_prev = 0
-local axis_sel_out = 0
-local axis_sel_timeout = 1
-local prevAxisSel = 0
 
 local toggleStart = 0
 local trigCamStart = 0
